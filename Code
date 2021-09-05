@@ -1,0 +1,126 @@
+library(tidytuesdayR)
+tuesdata <- tidytuesdayR::tt_load('2021-08-31')
+bird_baths <- tuesdata$bird_baths
+glimpse(bird_baths)
+summary(bird_baths)
+library(tidyverse)
+library(dplyr)
+library("patchwork")
+
+
+aggregate(bird_baths$bird_count,by=list(Area=bird_baths$urban_rural),FUN=sum)->ag
+aggregate(bird_baths$bird_count,by=list(Year=bird_baths$survey_year),FUN=sum)->ag1
+
+
+
+ag$fraction = ag$x/sum(ag$x)
+ag$ymax = cumsum(ag$fraction)
+ag$ymin = c(0, head(ag$ymax, n=-1))
+
+ggplot(ag, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=Area)) +
+  geom_rect() +
+  coord_polar(theta="y")+
+  xlim(c(2, 4)) +
+  theme(legend.position = "right")+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),   
+        panel.grid  = element_blank())->d1
+
+d1+scale_fill_manual(values=c("#BCD2E8", "#1E3F66"))->d1
+d1+labs(
+  title="Bird assemblages were more in urban areas..."
+)->d1
+d1+theme(panel.grid = element_blank())+ theme_classic()+theme(axis.text.x = element_blank(),
+                                              axis.text.y = element_blank(),
+                                              axis.ticks = element_blank(),   
+                                              panel.grid  = element_blank(), 
+                                              panel.border = element_blank(),
+                                              axis.line = element_blank())->d1
+d1
+
+
+ag1$fraction = ag1$x/sum(ag1$x)
+ag1$ymax = cumsum(ag1$fraction)
+ag1$ymin = c(0, head(ag1$ymax, n=-1))
+as.character(ag1$Year)->ag1$Year
+
+
+ggplot(ag1, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=Year))+geom_rect() +
+  coord_polar(theta="y") +
+  xlim(c(2, 4)) +
+  xlab(label = "")+ylab(label="")+
+  theme(legend.position = "right")+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid  = element_blank())->d2
+
+d2+scale_fill_manual(values=c("#1E3F66", "#BCD2E8"))->d2
+d2+ labs(
+  title="...and fewer birds were spotted in 2015"
+)->d2
+
+d2+theme(panel.grid = element_blank())+ theme_classic()+ theme(axis.text.x = element_blank(),
+                                              axis.text.y = element_blank(),
+                                              axis.ticks = element_blank(),   
+                                              panel.grid  = element_blank(), 
+                                              panel.border = element_blank(),
+                                              axis.line = element_blank())->d2
+d2
+
+
+bird_baths%>%filter(urban_rural=="Urban")->urban
+aggregate(urban$bird_count,by=list(birdtype=urban$bird_type,region=urban$bioregions),FUN=sum)->urbana
+
+bird_baths%>%filter(urban_rural=="Rural")->rural
+aggregate(rural$bird_count,by=list(birdtype=rural$bird_type,region=rural$bioregions),FUN=sum)->rurala
+
+
+urbana%>%filter(x>0)->urbana
+rurala%>%filter(x>0)->rurala
+urbana%>%arrange(x)%>%top_n(5)->urbanb
+rurala%>%arrange(x)%>%top_n(5)->ruralb
+
+colnames(urbanb)<-c("BirdType","Region","BirdCount")
+colnames(ruralb)<-c("BirdType","Region","BirdCount")
+
+
+ggplot(urbanb, mapping = aes(x = Region,y = BirdType,fill = BirdCount)) + 
+  geom_tile()+ xlab(label = "Region")+ylab(label="Bird Type")+
+  scale_fill_gradientn(colors=hcl.colors(5, "Blues")) ->h1
+h1+  guides(fill = guide_colourbar(barwidth = 0.5,
+                                   barheight = 8))->h1
+h1+
+  labs(title="Nosey Miner was among the top 5 birds spotted both in urban and rural areas", subtitle = "Urban")->h1
+
+h1+theme(panel.grid = element_blank())+ theme_classic()+ theme(panel.grid  = element_blank(), 
+                                              panel.border = element_blank(),
+                                              axis.line = element_blank(),
+                                              axis.ticks = element_blank())->h1
+h1  
+
+
+ggplot(ruralb, mapping = aes(x = Region,y = BirdType,fill = BirdCount)) + 
+  geom_tile()+ xlab(label = "Region")+ylab(label="Bird Type")+ 
+  scale_fill_gradientn(colors=hcl.colors(5, "Blues"))->h2
+
+h2+ guides(fill = guide_colourbar(barwidth = 0.5,
+                                   barheight = 8))->h2
+h2+theme(panel.grid = element_blank())+ theme_classic()+theme(panel.grid  = element_blank(), 
+                                              panel.border = element_blank(),
+                                              axis.line = element_blank(),
+                                              axis.ticks = element_blank())->h2
+h2+labs(subtitle  = "Rural")->h2
+
+h2
+
+(d1|d2)/h1->plot1
+plot1/h2->plot2
+plot2+plot_annotation(
+  title = 'Bird Bath Spottings in Australia',
+  caption = 'Data: Gráinne P. Cleary, Holly Parsons, Adrian Davis, Bill R. Coleman, Darryl N. Jones, Kelly K. Miller, Michael A. Weston|Graphic: @annapurani93'
+)->finalplot
+finalplot
+ggsave("finalplot.png", finalplot, width = 16, height = 16)
+
